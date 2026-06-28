@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="TerminOn.Application/TerminOn.Application.csproj" />
+  <Project Path="TerminOn.Test/TerminOn.Test.csproj" />
+  <Project Path="TerminOn.Web/TerminOn.Web.csproj" />
+</Solution>
