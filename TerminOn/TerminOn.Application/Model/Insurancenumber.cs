@@ -11,7 +11,7 @@ namespace TerminOn.Application.Model
         
         public InsuranceNumber(string value)
         {
-            if(string.IsNullOrEmpty(value) || value.Length != 0)
+            if(string.IsNullOrEmpty(value) || value.Length != 10)
             {
                 throw new AppointmentException("Ungültige Versicherungsnummer!");
             }

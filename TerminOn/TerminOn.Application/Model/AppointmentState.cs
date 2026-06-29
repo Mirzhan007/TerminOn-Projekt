@@ -26,7 +26,7 @@ namespace TerminOn.Application.Model
 
         public DateTime Created { get; set; }
 
-        public string Type { get; set; } = null!;
+        public string Type { get; set; } = default!;
 
     }
 }

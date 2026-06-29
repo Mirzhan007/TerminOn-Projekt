@@ -53,5 +53,10 @@ public class AppointmentContext : DbContext
         modelBuilder.Entity<Doctor>().HasIndex(d => d.Email).IsUnique();
 
         modelBuilder.Entity<Appointment>().HasIndex("Date", "PatientId").IsUnique();
+
+        modelBuilder.Entity<Appointment>()
+        .HasOne(a => a.CurrentState)
+        .WithOne(s => s.Appointment)
+        .HasForeignKey<AppointmentState>("AppointmentId");
     }
 }
