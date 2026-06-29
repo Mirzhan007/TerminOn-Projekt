@@ -15,12 +15,12 @@ namespace TerminOn.Application.Model
 
 
 
-        public Patient(string firstname, string lastname, Insurancenumber insurancenumber, PhoneNumber? mobile)
+        public Patient(string firstname, string lastname, InsuranceNumber insurancenumber, PhoneNumber? mobile)
         {
 
             Firstname = firstname;
             Lastname = lastname;
-            Insurancenumber = insurancenumber;
+            InsuranceNumber = insurancenumber;
             Mobile = mobile;
         }
 
@@ -29,7 +29,7 @@ namespace TerminOn.Application.Model
         public int Id { get; private set; }
         public string Firstname { get; set; }
         public string Lastname { get; set; }
-        public Insurancenumber Insurancenumber { get; set; }
+        public InsuranceNumber InsuranceNumber { get; set; }
         public PhoneNumber? Mobile {  get; set; }
 
     }

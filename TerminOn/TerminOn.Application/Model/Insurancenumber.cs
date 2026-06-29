@@ -6,10 +6,10 @@ using System.Threading.Tasks;
 
 namespace TerminOn.Application.Model
 {
-    public record Insurancenumber
+    public class InsuranceNumber
     {
         
-        public Insurancenumber(string value)
+        public InsuranceNumber(string value)
         {
             if(string.IsNullOrEmpty(value) || value.Length != 0)
             {

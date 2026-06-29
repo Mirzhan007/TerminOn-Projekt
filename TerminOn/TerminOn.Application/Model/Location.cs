@@ -6,17 +6,20 @@ using System.Threading.Tasks;
 
 namespace TerminOn.Application.Model
 {
-    public record Location
+    public class Location
     {
-        public Location(int pLZ, string city, string address)
+#pragma warning disable CS8618 // Ein Non-Nullable-Feld muss beim Beenden des Konstruktors einen Wert ungleich NULL enthalten. Fügen Sie ggf. den „erforderlichen“ Modifizierer hinzu, oder deklarieren Sie den Modifizierer als NULL-Werte zulassend.
+        public Location() { }
+#pragma warning restore CS8618 // Ein Non-Nullable-Feld muss beim Beenden des Konstruktors einen Wert ungleich NULL enthalten. Fügen Sie ggf. den „erforderlichen“ Modifizierer hinzu, oder deklarieren Sie den Modifizierer als NULL-Werte zulassend.
+
+        public Location(string name, string roomNumber)
         {
-            PLZ = pLZ;
-            City = city;
-            Address = address;
+            Name = name;
+            RoomNumber = roomNumber;
         }
 
-        public int PLZ { get; set; }
-        public string City { get; set; }
-        public string Address { get; set; }
+        public int Id { get; set; }
+        public string Name { get; set; }       
+        public string RoomNumber { get; set; } 
     }
 }
