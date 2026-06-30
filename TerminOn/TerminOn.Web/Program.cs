@@ -15,6 +15,10 @@ builder.Services.AddScoped<PatientService>();
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+
+builder.Services.AddScoped<DoctorService>();
+builder.Services.AddScoped<LocationService>();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
