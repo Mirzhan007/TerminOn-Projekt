@@ -49,3 +49,51 @@ h1:focus {
 .darker-border-checkbox.form-check-input {
     border-color: #929292;
 }
+
+
+
+/* MCW Globales Farb- und Hintergrund-Setup */
+body {
+    background-color: #f4f7fc !important; /* Das sanfte Hellblau-Grau aus dem Mockup */
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* Die ehemals lila Seitenleiste wird strahlend weiß */
+.sidebar {
+    background-image: none !important;
+    background-color: #ffffff !important;
+    border-right: 1px solid #e2e8f0 !important;
+    box-shadow: 2px 0 12px rgba(0, 0, 0, 0.03);
+}
+
+/* Titel in der Seitenleiste anpassen */
+.top-row.navbar-dark {
+    background-color: #ffffff !important;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+    .top-row.navbar-dark .navbar-brand {
+        color: #1e293b !important;
+        font-weight: 700;
+        font-size: 1.25rem;
+    }
+
+/* Navigations-Links im MCW-Stil */
+.nav-scrollable .nav-item a {
+    color: #64748b !important; /* Dezentes Grau für inaktive Links */
+    border-radius: 8px;
+    margin: 4px 12px;
+    transition: all 0.2s ease;
+}
+
+    /* Aktiver Menüpunkt (Deep Blue) */
+    .nav-scrollable .nav-item a.active {
+        background-color: #2b4c7e !important; /* Das edle MCW-Blau */
+        color: #ffffff !important;
+        box-shadow: 0 4px 12px rgba(43, 76, 126, 0.2);
+    }
+
+    .nav-scrollable .nav-item a:hover:not(.active) {
+        background-color: #f1f5f9 !important;
+        color: #1e293b !important;
+    }

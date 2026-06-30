@@ -1,0 +1,248 @@
+﻿@page "/patients"
+@using TerminOn.Application.Model
+@using TerminOn.Application.Services
+@inject PatientService PatientService
+@rendermode InteractiveServer
+
+<PageTitle>Patientenverwaltung</PageTitle>
+
+<div class="container-fluid px-4 py-4">
+
+    <!-- MCW Header -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center pb-3 mb-4 border-bottom">
+        <div>
+            <h1 class="h3 mb-1 fw-bold text-dark" style="letter-spacing: -0.5px;">Patientenverwaltung</h1>
+            <p class="text-muted small mb-0">Ordination Dr. Mira Muster & Partner</p>
+        </div>
+
+        <div class="d-flex gap-2">
+            <button class="btn text-white px-3 fw-semibold shadow-sm" style="background-color: #2b4c7e; font-size: 0.85rem; border-radius: 6px;" @onclick="OpenCreateForm">
+                ➕ Neuen Patienten erfassen
+            </button>
+            <button class="btn btn-outline-secondary btn-sm px-3" style="border-radius: 6px;" @onclick="SeedTestDataAsync">
+                🧪 Testdaten laden
+            </button>
+        </div>
+    </div>
+
+    <!-- Dynamisches Formular (Sichtbar beim Erstellen oder Bearbeiten) -->
+    @if (showForm)
+    {
+        <div class="card border-0 shadow-sm rounded-4 bg-white mb-4 p-4 animate-fade-in">
+            <h5 class="fw-bold text-dark mb-3">@(isEditMode ? "✏️ Patientendaten bearbeiten" : "👤 Neuen Patienten registrieren")</h5>
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger d-flex align-items-center small py-2" role="alert">
+                    ⚠️ @errorMessage
+                </div>
+            }
+
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label small fw-semibold text-secondary">Vorname</label>
+                    <input type="text" class="form-control form-control-sm rounded-2" @bind="formFirstname" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small fw-semibold text-secondary">Nachname</label>
+                    <input type="text" class="form-control form-control-sm rounded-2" @bind="formLastname" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small fw-semibold text-secondary">Sozialversicherungsnummer (10 Stellen)</label>
+                    <input type="text" class="form-control form-control-sm rounded-2" @bind="formInsurance" placeholder="z.B. 1234567890" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small fw-semibold text-secondary">Mobilnummer (Optional)</label>
+                    <input type="text" class="form-control form-control-sm rounded-2" @bind="formMobile" placeholder="z.B. +43660..." />
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-end gap-2 mt-3">
+                <button class="btn btn-light btn-sm px-3 border" @onclick="CloseForm">Abbrechen</button>
+                <button class="btn text-white btn-sm px-4" style="background-color: #2b4c7e;" @onclick="SavePatientAsync">Speichern</button>
+            </div>
+        </div>
+    }
+
+    <!-- Haupt-Tabelle -->
+    <div class="card border-0 shadow-sm rounded-4 bg-white overflow-hidden">
+        <div class="card-header bg-white border-0 pt-4 px-4 d-flex justify-content-between align-items-center">
+            <h5 class="card-title fw-bold text-secondary mb-0" style="font-size: 1rem;">Registrierte Patienten</h5>
+            <span class="badge rounded-pill bg-light text-dark border px-3 py-2 fw-medium">Gesamt: @(patients?.Count ?? 0)</span>
+        </div>
+
+        @if (patients == null)
+        {
+            <div class="text-center my-5 py-5">
+                <div class="spinner-border text-primary mb-3" role="status"></div>
+                <p class="text-muted small">Verbindung zur Datenbank...</p>
+            </div>
+        }
+        else if (!patients.Any())
+        {
+            <div class="text-center my-5 py-5">
+                <div class="mb-3 fs-2">👥</div>
+                <h5 class="fw-bold text-dark">Keine Patienten vorhanden</h5>
+                <p class="text-muted small">Erfasse deinen ersten Patienten über den blauen Button oben.</p>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive px-2 pb-3">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr class="text-uppercase" style="font-size: 0.75rem; color: #64748b; background-color: #f8fafc;">
+                            <th class="ps-4 py-3 border-bottom">ID</th>
+                            <th class="py-3 border-bottom">Vorname</th>
+                            <th class="py-3 border-bottom">Nachname</th>
+                            <th class="py-3 border-bottom">Sozialversicherung</th>
+                            <th class="py-3 border-bottom">Mobilnummer</th>
+                            <th class="pe-4 py-3 border-bottom text-end">Aktionen</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var patient in patients)
+                        {
+                            <tr>
+                                <td class="ps-4 py-3 fw-bold text-muted">#@patient.Id</td>
+                                <td class="py-3 fw-semibold text-dark">@patient.Firstname</td>
+                                <td class="py-3 fw-semibold text-dark">@patient.Lastname</td>
+                                <td class="py-3">
+                                    <span class="px-2 py-1 fw-semibold text-primary bg-primary bg-opacity-10 rounded-2" style="font-size: 0.85rem;">
+                                        @patient.InsuranceNumber.Value
+                                    </span>
+                                </td>
+                                <td class="py-3 text-secondary" style="font-size: 0.9rem;">
+                                    @(patient.Mobile?.Value ?? "Keine Angabe")
+                                </td>
+                                <td class="pe-4 py-3 text-end">
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-outline-primary border-0" title="Bearbeiten" @onclick="() => OpenEditForm(patient)">✏️</button>
+                                        <button class="btn btn-outline-danger border-0" title="Löschen" @onclick="() => DeletePatientAsync(patient.Id)">🗑️</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private List<Patient>? patients;
+
+    // Formular-Zustände
+    private bool showForm = false;
+    private bool isEditMode = false;
+    private string errorMessage = "";
+
+    // Formular-Felder
+    private Patient? currentEditingPatient;
+    private string formFirstname = "";
+    private string formLastname = "";
+    private string formInsurance = "";
+    private string formMobile = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPatientsAsync();
+    }
+
+    private async Task LoadPatientsAsync()
+    {
+        patients = await PatientService.GetAllPatientsAsync();
+    }
+
+    private void OpenCreateForm()
+    {
+        isEditMode = false;
+        errorMessage = "";
+        formFirstname = "";
+        formLastname = "";
+        formInsurance = "";
+        formMobile = "";
+        showForm = true;
+    }
+
+    private void OpenEditForm(Patient patient)
+    {
+        isEditMode = true;
+        errorMessage = "";
+        currentEditingPatient = patient;
+        formFirstname = patient.Firstname;
+        formLastname = patient.Lastname;
+        formInsurance = patient.InsuranceNumber.Value;
+        formMobile = patient.Mobile?.Value ?? "";
+        showForm = true;
+    }
+
+    private void CloseForm()
+    {
+        showForm = false;
+        errorMessage = "";
+    }
+
+    private async Task SavePatientAsync()
+    {
+        try
+        {
+            errorMessage = "";
+
+            if (string.IsNullOrWhiteSpace(formFirstname) || string.IsNullOrWhiteSpace(formLastname))
+            {
+                errorMessage = "Vorname und Nachname dürfen nicht leer sein.";
+                return;
+            }
+
+            // Validierung der Rich Types abfangen!
+            var insurance = new InsuranceNumber(formInsurance);
+            var phoneNumber = !string.IsNullOrWhiteSpace(formMobile) ? new PhoneNumber(formMobile) : null;
+
+            if (isEditMode && currentEditingPatient != null)
+            {
+                // UPDATE
+                currentEditingPatient.Firstname = formFirstname;
+                currentEditingPatient.Lastname = formLastname;
+                currentEditingPatient.InsuranceNumber = insurance;
+                currentEditingPatient.Mobile = phoneNumber;
+
+                await PatientService.UpdatePatientAsync(currentEditingPatient);
+            }
+            else
+            {
+                // CREATE
+                var newPatient = new Patient(formFirstname, formLastname, insurance, phoneNumber);
+                await PatientService.AddPatientAsync(newPatient);
+            }
+
+            showForm = false;
+            await LoadPatientsAsync();
+        }
+        catch (AppointmentException ex)
+        {
+            // Fängt die Domänen-Validierung direkt ab (z.B. SV-Nummer ungleich 10 Stellen)
+            errorMessage = ex.Message;
+        }
+        catch (Exception)
+        {
+            errorMessage = "Ein unerwarteter Fehler ist aufgetreten.";
+        }
+    }
+
+    private async Task DeletePatientAsync(int id)
+    {
+        await PatientService.DeletePatientAsync(id);
+        await LoadPatientsAsync();
+    }
+
+    private async Task SeedTestDataAsync()
+    {
+        var test1 = new Patient("Max", "Mustermann", new InsuranceNumber("1234567890"), new PhoneNumber("+4366011223"));
+        var test2 = new Patient("Anna", "Schmidt", new InsuranceNumber("9876543210"), null);
+        await PatientService.AddPatientAsync(test1);
+        await PatientService.AddPatientAsync(test2);
+        await LoadPatientsAsync();
+    }
+}
