@@ -2,21 +2,24 @@
 @using TerminOn.Application.Model
 @using TerminOn.Application.Services
 @inject PatientService PatientService
+@inject NavigationManager NavManager
 @rendermode InteractiveServer
 
 <PageTitle>Patientenverwaltung</PageTitle>
 
 <div class="container-fluid px-4 py-4">
-
+    
     <!-- MCW Header -->
     <div class="d-flex flex-wrap justify-content-between align-items-center pb-3 mb-4 border-bottom">
         <div>
             <h1 class="h3 mb-1 fw-bold text-dark" style="letter-spacing: -0.5px;">Patientenverwaltung</h1>
             <p class="text-muted small mb-0">Ordination Dr. Mira Muster & Partner</p>
         </div>
-
+        
         <div class="d-flex gap-2">
-            <button class="btn text-white px-3 fw-semibold shadow-sm" style="background-color: #2b4c7e; font-size: 0.85rem; border-radius: 6px;" @onclick="OpenCreateForm">
+            <!-- Navigiert jetzt auf die neue Erfassungs-Seite -->
+            <button class="btn text-white px-3 fw-semibold shadow-sm" style="background-color: #2b4c7e; font-size: 0.85rem; border-radius: 6px;" 
+                    @onclick='() => NavManager.NavigateTo("/patient/new")'>
                 ➕ Neuen Patienten erfassen
             </button>
             <button class="btn btn-outline-secondary btn-sm px-3" style="border-radius: 6px;" @onclick="SeedTestDataAsync">
@@ -24,45 +27,6 @@
             </button>
         </div>
     </div>
-
-    <!-- Dynamisches Formular (Sichtbar beim Erstellen oder Bearbeiten) -->
-    @if (showForm)
-    {
-        <div class="card border-0 shadow-sm rounded-4 bg-white mb-4 p-4 animate-fade-in">
-            <h5 class="fw-bold text-dark mb-3">@(isEditMode ? "✏️ Patientendaten bearbeiten" : "👤 Neuen Patienten registrieren")</h5>
-
-            @if (!string.IsNullOrEmpty(errorMessage))
-            {
-                <div class="alert alert-danger d-flex align-items-center small py-2" role="alert">
-                    ⚠️ @errorMessage
-                </div>
-            }
-
-            <div class="row g-3">
-                <div class="col-md-3">
-                    <label class="form-label small fw-semibold text-secondary">Vorname</label>
-                    <input type="text" class="form-control form-control-sm rounded-2" @bind="formFirstname" />
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label small fw-semibold text-secondary">Nachname</label>
-                    <input type="text" class="form-control form-control-sm rounded-2" @bind="formLastname" />
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label small fw-semibold text-secondary">Sozialversicherungsnummer (10 Stellen)</label>
-                    <input type="text" class="form-control form-control-sm rounded-2" @bind="formInsurance" placeholder="z.B. 1234567890" />
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label small fw-semibold text-secondary">Mobilnummer (Optional)</label>
-                    <input type="text" class="form-control form-control-sm rounded-2" @bind="formMobile" placeholder="z.B. +43660..." />
-                </div>
-            </div>
-
-            <div class="d-flex justify-content-end gap-2 mt-3">
-                <button class="btn btn-light btn-sm px-3 border" @onclick="CloseForm">Abbrechen</button>
-                <button class="btn text-white btn-sm px-4" style="background-color: #2b4c7e;" @onclick="SavePatientAsync">Speichern</button>
-            </div>
-        </div>
-    }
 
     <!-- Haupt-Tabelle -->
     <div class="card border-0 shadow-sm rounded-4 bg-white overflow-hidden">
@@ -117,8 +81,11 @@
                                 </td>
                                 <td class="pe-4 py-3 text-end">
                                     <div class="btn-group btn-group-sm">
-                                        <button class="btn btn-outline-primary border-0" title="Bearbeiten" @onclick="() => OpenEditForm(patient)">✏️</button>
-                                        <button class="btn btn-outline-danger border-0" title="Löschen" @onclick="() => DeletePatientAsync(patient.Id)">🗑️</button>
+                                        <!-- Navigiert jetzt dynamisch mit der ID auf die Editier-Seite -->
+                                        <button class="btn btn-outline-primary border-0" title="Bearbeiten" 
+                                                @onclick='() => NavManager.NavigateTo($"/patient/edit/{patient.Id}")'>✏️</button>
+                                        <button class="btn btn-outline-danger border-0" title="Löschen" 
+                                                @onclick="() => DeletePatientAsync(patient.Id)">🗑️</button>
                                     </div>
                                 </td>
                             </tr>
@@ -133,18 +100,6 @@
 @code {
     private List<Patient>? patients;
 
-    // Formular-Zustände
-    private bool showForm = false;
-    private bool isEditMode = false;
-    private string errorMessage = "";
-
-    // Formular-Felder
-    private Patient? currentEditingPatient;
-    private string formFirstname = "";
-    private string formLastname = "";
-    private string formInsurance = "";
-    private string formMobile = "";
-
     protected override async Task OnInitializedAsync()
     {
         await LoadPatientsAsync();
@@ -153,82 +108,6 @@
     private async Task LoadPatientsAsync()
     {
         patients = await PatientService.GetAllPatientsAsync();
-    }
-
-    private void OpenCreateForm()
-    {
-        isEditMode = false;
-        errorMessage = "";
-        formFirstname = "";
-        formLastname = "";
-        formInsurance = "";
-        formMobile = "";
-        showForm = true;
-    }
-
-    private void OpenEditForm(Patient patient)
-    {
-        isEditMode = true;
-        errorMessage = "";
-        currentEditingPatient = patient;
-        formFirstname = patient.Firstname;
-        formLastname = patient.Lastname;
-        formInsurance = patient.InsuranceNumber.Value;
-        formMobile = patient.Mobile?.Value ?? "";
-        showForm = true;
-    }
-
-    private void CloseForm()
-    {
-        showForm = false;
-        errorMessage = "";
-    }
-
-    private async Task SavePatientAsync()
-    {
-        try
-        {
-            errorMessage = "";
-
-            if (string.IsNullOrWhiteSpace(formFirstname) || string.IsNullOrWhiteSpace(formLastname))
-            {
-                errorMessage = "Vorname und Nachname dürfen nicht leer sein.";
-                return;
-            }
-
-            // Validierung der Rich Types abfangen!
-            var insurance = new InsuranceNumber(formInsurance);
-            var phoneNumber = !string.IsNullOrWhiteSpace(formMobile) ? new PhoneNumber(formMobile) : null;
-
-            if (isEditMode && currentEditingPatient != null)
-            {
-                // UPDATE
-                currentEditingPatient.Firstname = formFirstname;
-                currentEditingPatient.Lastname = formLastname;
-                currentEditingPatient.InsuranceNumber = insurance;
-                currentEditingPatient.Mobile = phoneNumber;
-
-                await PatientService.UpdatePatientAsync(currentEditingPatient);
-            }
-            else
-            {
-                // CREATE
-                var newPatient = new Patient(formFirstname, formLastname, insurance, phoneNumber);
-                await PatientService.AddPatientAsync(newPatient);
-            }
-
-            showForm = false;
-            await LoadPatientsAsync();
-        }
-        catch (AppointmentException ex)
-        {
-            // Fängt die Domänen-Validierung direkt ab (z.B. SV-Nummer ungleich 10 Stellen)
-            errorMessage = ex.Message;
-        }
-        catch (Exception)
-        {
-            errorMessage = "Ein unerwarteter Fehler ist aufgetreten.";
-        }
     }
 
     private async Task DeletePatientAsync(int id)

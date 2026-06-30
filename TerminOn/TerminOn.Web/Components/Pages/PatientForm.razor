@@ -1,0 +1,163 @@
+﻿@page "/patient/new"
+@page "/patient/edit/{id:int}"
+@using TerminOn.Application.Model
+@using TerminOn.Application.Services
+@inject PatientService PatientService
+@inject NavigationManager NavManager
+@rendermode InteractiveServer
+
+<PageTitle>@(Id.HasValue ? "Patient bearbeiten" : "Patient anlegen") - TerminOn</PageTitle>
+
+<div class="container mt-5" style="max-width: 800px;">
+    
+    <!-- Zurück-Link -->
+    <div class="mb-3">
+        <button class="btn btn-link text-decoration-none p-0 text-secondary" @onclick="NavigateBack">
+            ⬅️ Zurück zur Übersicht
+        </button>
+    </div>
+
+    <!-- Die dedizierte MCW-Formularkarte -->
+    <div class="card border-0 shadow-sm rounded-4 bg-white p-4">
+        <h3 class="fw-bold text-dark mb-1">
+            @(Id.HasValue ? "✏️ Patientendaten bearbeiten" : "👤 Neuen Patienten registrieren")
+        </h3>
+        <p class="text-muted small mb-4">Ordination Dr. Mira Muster & Partner</p>
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger d-flex align-items-center small py-2 mb-4" role="alert">
+                ⚠️ @errorMessage
+            </div>
+        }
+
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label small fw-semibold text-secondary">Vorname</label>
+                <input type="text" class="form-control form-control-lg bg-light border-0 rounded-3" @bind="formFirstname" style="font-size: 0.95rem;" />
+            </div>
+            
+            <div class="col-md-6">
+                <label class="form-label small fw-semibold text-secondary">Nachname</label>
+                <input type="text" class="form-control form-control-lg bg-light border-0 rounded-3" @bind="formLastname" style="font-size: 0.95rem;" />
+            </div>
+            
+            <div class="col-md-6">
+                <label class="form-label small fw-semibold text-secondary">Sozialversicherungsnummer (10 Stellen)</label>
+                <input type="text" class="form-control form-control-lg bg-light border-0 rounded-3" @bind="formInsurance" placeholder="z.B. 1234567890" style="font-size: 0.95rem;" />
+            </div>
+            
+            <div class="col-md-6">
+                <label class="form-label small fw-semibold text-secondary">Mobilnummer (Optional)</label>
+                <input type="text" class="form-control form-control-lg bg-light border-0 rounded-3" @bind="formMobile" placeholder="z.B. +43660..." style="font-size: 0.95rem;" />
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-end gap-2 mt-5 border-top pt-3">
+            <button class="btn btn-light px-4 py-2 border rounded-3 fw-medium" @onclick="NavigateBack">Abbrechen</button>
+            <button class="btn text-white px-5 py-2 rounded-3 fw-semibold shadow-sm" style="background-color: #2b4c7e;" @onclick="SavePatientAsync">
+                💾 Speichern
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    // Blazor füllt diesen Parameter automatisch ab, wenn die URL "/patient/edit/5" lautet
+    [Parameter] public int? Id { get; set; }
+
+    private string errorMessage = "";
+    private Patient? existingPatient;
+
+    // Formularfelder
+    private string formFirstname = "";
+    private string formLastname = "";
+    private string formInsurance = "";
+    private string formMobile = "";
+
+    // Wird gefeuert, wenn die Seite aufgerufen oder die Parameter geändert werden
+    protected override async Task OnParametersSetAsync()
+    {
+        errorMessage = "";
+        
+        if (Id.HasValue)
+        {
+            // EDIT-MODUS: Wir laden den Patienten aus der DB
+            var allPatients = await PatientService.GetAllPatientsAsync();
+            existingPatient = allPatients.FirstOrDefault(p => p.Id == Id.Value);
+
+            if (existingPatient != null)
+            {
+                formFirstname = existingPatient.Firstname;
+                formLastname = existingPatient.Lastname;
+                formInsurance = existingPatient.InsuranceNumber.Value;
+                formMobile = existingPatient.Mobile?.Value ?? "";
+            }
+            else
+            {
+                errorMessage = "Der angeforderte Patient wurde nicht gefunden.";
+            }
+        }
+        else
+        {
+            // CREATE-MODUS: Leere Felder für neuen Datensatz
+            formFirstname = "";
+            formLastname = "";
+            formInsurance = "";
+            formMobile = "";
+            existingPatient = null;
+        }
+    }
+
+    private async Task SavePatientAsync()
+    {
+        try
+        {
+            errorMessage = "";
+
+            if (string.IsNullOrWhiteSpace(formFirstname) || string.IsNullOrWhiteSpace(formLastname))
+            {
+                errorMessage = "Vorname und Nachname müssen ausgefüllt sein.";
+                return;
+            }
+
+            // Validierung der Rich Types deines Modells triggern
+            var insurance = new InsuranceNumber(formInsurance);
+            var phoneNumber = !string.IsNullOrWhiteSpace(formMobile) ? new PhoneNumber(formMobile) : null;
+
+            if (Id.HasValue && existingPatient != null)
+            {
+                // UPDATE ausführen
+                existingPatient.Firstname = formFirstname;
+                existingPatient.Lastname = formLastname;
+                existingPatient.InsuranceNumber = insurance;
+                existingPatient.Mobile = phoneNumber;
+
+                await PatientService.UpdatePatientAsync(existingPatient);
+            }
+            else
+            {
+                // CREATE ausführen
+                var newPatient = new Patient(formFirstname, formLastname, insurance, phoneNumber);
+                await PatientService.AddPatientAsync(newPatient);
+            }
+
+            // Nach Erfolg zurück zur Tabelle springen
+            NavigateBack();
+        }
+        catch (AppointmentException ex)
+        {
+            // Fängt z.B. zu kurze SV-Nummern ab
+            errorMessage = ex.Message;
+        }
+        catch (Exception)
+        {
+            errorMessage = "Ein Fehler ist beim Speichern aufgetreten.";
+        }
+    }
+
+    private void NavigateBack()
+    {
+        NavManager.NavigateTo("/patients");
+    }
+}
