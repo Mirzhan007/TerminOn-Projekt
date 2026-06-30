@@ -11,8 +11,11 @@ namespace TerminOn.Application.Model
 
         protected CancelledAppointmentState() { }
 
-        public CancelledAppointmentState(Appointment appointment, DateTime created) : base(appointment, created)
+        public CancelledAppointmentState(Appointment appointment, DateTime created, string? reason) : base(appointment, created)
         {
+            Reason = reason;
         }
+
+        public string? Reason { get; set; }
     }
 }

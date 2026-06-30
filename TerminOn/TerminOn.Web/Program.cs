@@ -10,14 +10,15 @@ builder.Services.AddDbContext<AppointmentContext>(options =>
 
 
 builder.Services.AddScoped<PatientService>();
+builder.Services.AddScoped<DoctorService>();
+builder.Services.AddScoped<LocationService>();
+builder.Services.AddScoped<AppointmentService>();
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 
-builder.Services.AddScoped<DoctorService>();
-builder.Services.AddScoped<LocationService>();
 
 var app = builder.Build();
 
