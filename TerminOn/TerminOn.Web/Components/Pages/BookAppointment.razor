@@ -1,0 +1,190 @@
+﻿@page "/book-appointment"
+@using TerminOn.Application.Model
+@using TerminOn.Application.Services
+@inject AppointmentService AppointmentService
+@inject PatientService PatientService
+@inject DoctorService DoctorService
+@inject LocationService LocationService
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<PageTitle>Termin buchen - TerminOn</PageTitle>
+
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            
+            <div class="card border-0 shadow rounded-4 p-4 bg-white">
+                <div class="mb-4 border-bottom pb-2">
+                    <h1 class="h3 fw-bold text-dark mb-1">📅 Neuen Termin buchen</h1>
+                    <p class="text-muted small">Wählen Sie die Stammdaten aus und legen Sie den Timeslot fest.</p>
+                </div>
+
+                @if (patients == null || doctors == null || locations == null)
+                {
+                    <div class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status"></div>
+                        <p class="text-muted small mt-2">Stammdaten werden geladen...</p>
+                    </div>
+                }
+                else if (!patients.Any() || !doctors.Any() || !locations.Any())
+                {
+                    <div class="alert alert-warning rounded-3 small" role="alert">
+                        <strong>⚠️ Stammdaten fehlen:</strong> Bitte stellen Sie sicher, dass mindestens ein Patient, ein Arzt und ein Raum im System registriert sind.
+                    </div>
+                    <a href="calendar/day" class="btn btn-sm btn-secondary w-100 rounded-3">Zurück zum Kalender</a>
+                }
+                else
+                {
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger rounded-3 small py-2">❌ @errorMessage</div>
+                    }
+
+                    <div class="d-flex flex-column gap-3">
+                        
+                        <!-- 1. PATIENT WÄHLEN -->
+                        <div>
+                            <label class="form-label small fw-bold text-secondary mb-1">👤 Patient</label>
+                            <select class="form-select rounded-3" @bind="selectedPatientId">
+                                <option value="0">-- Bitte wählen --</option>
+                                @foreach (var p in patients)
+                                {
+                                    <!-- KORREKTUR: Keine potenziell fehlerhaften Properties mehr im Text -->
+                                    <option value="@p.Id">@p.Firstname @p.Lastname</option>
+                                }
+                            </select>
+                        </div>
+
+                        <!-- 2. ARZT WÄHLEN -->
+                        <div>
+                            <label class="form-label small fw-bold text-secondary mb-1">👨‍⚕️ Behandelnder Arzt</label>
+                            <select class="form-select rounded-3" @bind="selectedDoctorId">
+                                <option value="0">-- Bitte wählen --</option>
+                                @foreach (var d in doctors)
+                                {
+                                    <option value="@d.Id">Dr. @d.Firstname @d.Lastname</option>
+                                }
+                            </select>
+                        </div>
+
+                        <!-- 3. RAUM / LOCATION WÄHLEN -->
+                        <div>
+                            <label class="form-label small fw-bold text-secondary mb-1">🏢 Raum / Ordination</label>
+                            <select class="form-select rounded-3" @bind="selectedLocationId">
+                                <option value="0">-- Bitte wählen --</option>
+                                @foreach (var l in locations)
+                                {
+                                    <option value="@l.Id">@l.Name (Raum @l.RoomNumber)</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="row g-2">
+                            <!-- 4. DATUM WÄHLEN -->
+                            <div class="col-12">
+                                <label class="form-label small fw-bold text-secondary mb-1">📆 Datum</label>
+                                <!-- KORREKTUR: Bindet jetzt nativ auf ein DateTime-Objekt ohne Strings -->
+                                <input type="date" class="form-control rounded-3" @bind="bookingDate" />
+                            </div>
+
+                            <!-- 5. UHRZEITEN (START & ENDE) -->
+                            <div class="col-6">
+                                <label class="form-label small fw-bold text-secondary mb-1">⏱️ Beginn</label>
+                                <input type="time" class="form-control rounded-3" @bind="startTime" />
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label small fw-bold text-secondary mb-1">⏱️ Ende</label>
+                                <input type="time" class="form-control rounded-3" @bind="endTime" />
+                            </div>
+                        </div>
+
+                        <!-- 6. INFOTEXT / BEHANDLUNGSGRUND -->
+                        <div>
+                            <label class="form-label small fw-bold text-secondary mb-1">📝 Grund der Behandlung</label>
+                            <input type="text" class="form-control rounded-3" placeholder="z.B. Erstbehandlung, Kontrolle, OP" @bind="infotext" />
+                        </div>
+
+                        <!-- BUTTONS -->
+                        <div class="d-flex gap-2 mt-3">
+                            <button class="btn btn-light border rounded-3 w-50" @onclick="Cancel">Abbrechen</button>
+                            <button class="btn text-white rounded-3 w-50 fw-bold" style="background-color: #2b4c7e;" @onclick="SaveAppointmentAsync">Termin speichern</button>
+                        </div>
+                    </div>
+                }
+            </div>
+            
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<Patient>? patients;
+    private List<Doctor>? doctors;
+    private List<Location>? locations;
+
+    private int selectedPatientId;
+    private int selectedDoctorId;
+    private int selectedLocationId;
+    
+    // KORREKTUR: Native DateTime-Typen garantieren fehlerfreie Blazor-Generierung (.g.cs)
+    private DateTime bookingDate = DateTime.Today;
+    private DateTime startTime = DateTime.Today.AddHours(8);
+    private DateTime endTime = DateTime.Today.AddHours(8).AddMinutes(30);
+    
+    private string infotext = "";
+    private string errorMessage = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        patients = await PatientService.GetAllPatientsAsync();
+        doctors = await DoctorService.GetAllDoctorsAsync();
+        locations = await LocationService.GetAllLocationsAsync();
+    }
+
+    private async Task SaveAppointmentAsync()
+    {
+        if (selectedPatientId == 0 || selectedDoctorId == 0 || selectedLocationId == 0 || string.IsNullOrEmpty(infotext))
+        {
+            errorMessage = "Bitte füllen Sie alle Felder vollständig aus.";
+            return;
+        }
+
+        try
+        {
+            errorMessage = "";
+
+            var patient = patients!.First(p => p.Id == selectedPatientId);
+            var doctor = doctors!.First(d => d.Id == selectedDoctorId);
+            var location = locations!.First(l => l.Id == selectedLocationId);
+
+            var resource = new Resource(location.Name, location);
+            var appType = new AppointmentType(infotext, "#3a5a85");
+            
+            // KORREKTUR: Konvertierung in DateOnly / TimeOnly erfolgt erst hier, sicher extrahiert aus den DateTimes
+            var dateOnly = DateOnly.FromDateTime(bookingDate);
+            var startTimeOnly = TimeOnly.FromDateTime(startTime);
+            var endTimeOnly = TimeOnly.FromDateTime(endTime);
+            
+            var appointment = new Appointment(dateOnly, DateTime.Now, patient, appType, resource);
+            var timeslot = new TimeSlot(startTimeOnly, endTimeOnly);
+
+            var confirmedState = new ConfirmedAppointmentState(doctor, timeslot, infotext, appointment, DateTime.Now);
+            
+            confirmedState.Appointment = appointment;
+            appointment.CurrentState = confirmedState;
+
+            await AppointmentService.AddAppointmentAsync(appointment);
+            NavigationManager.NavigateTo("calendar/day");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Fehler beim Speichern: {ex.Message}";
+        }
+    }
+
+    private void Cancel()
+    {
+        NavigationManager.NavigateTo("calendar/day");
+    }
+}

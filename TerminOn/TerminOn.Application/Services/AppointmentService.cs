@@ -18,14 +18,27 @@ namespace TerminOn.Application.Services
             _context = context;
         }
 
+        // Holt Termine für einen Tag inkl. Patient, Resource (Raum) und Status
         public async Task<List<Appointment>> GetAppointmentsByDateAsync(DateOnly date)
         {
             return await _context.Appointments
-                .Include(a => a.Patient)      
-                .Include(a => a.Doctor)       
-                .Include(a => a.Location)     
-                .Include(a => a.CurrentState) 
+                .Include(a => a.Patient)
+                .Include(a => a.Resource)     
+                .Include(a => a.CurrentState)  
+                .Include(a => a.AppointmentType) 
                 .Where(a => a.Date == date)
+                .ToListAsync();
+        }
+
+        // Holt Termine für einen Zeitraum (Woche/Monat)
+        public async Task<List<Appointment>> GetAppointmentsByRangeAsync(DateOnly start, DateOnly end)
+        {
+            return await _context.Appointments
+                .Include(a => a.Patient)
+                .Include(a => a.Resource)
+                .Include(a => a.CurrentState)
+                .Include(a => a.AppointmentType) 
+                .Where(a => a.Date >= start && a.Date <= end)
                 .ToListAsync();
         }
 

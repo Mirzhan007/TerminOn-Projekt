@@ -73,8 +73,8 @@ namespace TerminOn.Test
             db.SaveChanges();
 
 
-            var apptype1 = new AppointmentType("Röntgen am Bein", 20, "Blau");
-            var apptype2 = new AppointmentType("Operation am Arm", 60, "Rot");
+            var apptype1 = new AppointmentType("Röntgen am Bein", "Blau");
+            var apptype2 = new AppointmentType("Operation am Arm", "Rot");
 
             var location1 = new Location("Röntgenraum", "201F");
             var location2 = new Location("OP-Raum", "305A");

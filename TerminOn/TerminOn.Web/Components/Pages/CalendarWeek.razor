@@ -1,0 +1,149 @@
+﻿@page "/calendar/week"
+@using System.Globalization
+@using TerminOn.Application.Model
+@using TerminOn.Application.Services
+@inject AppointmentService AppointmentService
+@inject LocationService LocationService
+@rendermode InteractiveServer
+
+<PageTitle>Wochenansicht - TerminOn</PageTitle>
+
+<div class="container-fluid px-4 py-4 bg-white min-vh-100">
+    
+    <!-- 1. OBERER HEADER (Exakt deckungsgleich mit der Tagesansicht) -->
+    <div class="d-flex justify-content-between align-items-start mb-4">
+        <div>
+            <h1 class="fw-bold text-dark mb-0" style="font-size: 1.85rem; letter-spacing: -0.5px;">Ihr Kalender <span class="text-muted fw-light">&gt;</span></h1>
+            <p class="text-muted small mb-0 ps-1">Josef Keliner Gasse 1</p>
+        </div>
+        
+        <div class="d-flex gap-2">
+           <a href="book-appointment" class="btn btn-outline-primary px-4 py-2 small fw-semibold" style="border-color: #2b4c7e; color: #2b4c7e; border-radius: 6px; text-decoration: none;">Termin Buchen</a>
+            <button class="btn btn-danger px-4 py-2 small fw-bold shadow-sm" style="background-color: #e07a5f; border: none; border-radius: 6px;">AKUT</button>
+        </div>
+    </div>
+
+    <!-- 2. SUB-NAVIGATION (Konsolidiert, fehlerfrei und mit dynamischer Datumsspanne) -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 py-2 border-bottom border-top border-light">
+        <div class="d-flex align-items-center gap-2">
+            <h2 class="h5 mb-0 fw-bold text-dark">
+                KW @GetIsoWeekNumber(currentDate) &gt; 
+                <span class="text-muted fw-normal" style="font-size: 1.1rem;">
+                    (@GetStartOfWeek(currentDate).ToString("dd.MM.") - @GetEndOfWeek(currentDate).ToString("dd.MM.yyyy"))
+                </span>
+            </h2>
+            <button class="btn btn-sm btn-light border px-2 py-1 ms-2" @onclick="NavigatePrevious">◀</button>
+            <button class="btn btn-sm btn-light border px-3 py-1 small" @onclick="SetToToday">Heute</button>
+            <button class="btn btn-sm btn-light border px-2 py-1" @onclick="NavigateNext">▶</button>
+        </div>
+
+        <!-- Die MCW Navigations-Tabs -->
+        <div class="btn-group p-1 bg-light rounded-3 border" style="font-size: 0.85rem;">
+            <a href="calendar/month" class="btn btn-sm text-secondary border-0 px-3">Monat</a>
+            <a href="calendar/week" class="btn btn-sm bg-white shadow-sm text-primary rounded-2 fw-medium px-3">Woche</a>
+            <a href="calendar/day" class="btn btn-sm text-secondary border-0 px-3">Tag</a>
+        </div>
+    </div>
+
+    <!-- 3. WOCHEN-GRID -->
+    @if (appointments == null)
+    {
+        <div class="text-center my-5">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="text-muted small mt-2">Lade Wochenraster...</p>
+        </div>
+    }
+    else
+    {
+        <div class="card border-0 shadow-sm rounded-4 bg-white overflow-hidden mt-4">
+            <div class="table-responsive">
+                <table class="table table-borderless mb-0 text-center" style="table-layout: fixed;">
+                    <thead>
+                        <tr class="border-bottom border-light">
+                            <th style="width: 70px; background-color: #f8fafc;" class="py-3"></th>
+                            @for (int i = 0; i < 5; i++)
+                            {
+                                var day = GetStartOfWeek(currentDate).AddDays(i);
+                                <!-- Hebt den heutigen Wochentag dezent farblich hervor (falls in aktueller KW) -->
+                                <th class="py-3 fw-bold small text-uppercase border-start border-light @(day == DateOnly.FromDateTime(DateTime.Today) ? "text-primary bg-light" : "text-secondary")" style="font-size: 0.8rem; letter-spacing: 0.5px;">
+                                    @day.ToString("ddd dd.MM.")
+                                </th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var hour in hours)
+                        {
+                            <tr class="border-bottom border-light">
+                                <!-- Zeitachse links -->
+                                <td class="text-muted fw-semibold py-4" style="font-size: 0.85rem; width: 60px; vertical-align: top; background-color: #f8fafc;">
+                                    @($"{hour:D2}")
+                                </td>
+                                
+                                <!-- Wochentage -->
+                                @for (int i = 0; i < 5; i++)
+                                {
+                                    var day = GetStartOfWeek(currentDate).AddDays(i);
+                                    var app = appointments.FirstOrDefault(a => a.Date == day && a.CurrentState is ConfirmedAppointmentState c && c.PlannedSlot != null && c.PlannedSlot.Start.Hour == hour);
+                                    
+                                    <td class="p-2 position-relative border-start border-light" style="height: 110px; background-image: linear-gradient(#f8fafc 1px, transparent 1px); background-size: 100% 25px; vertical-align: top;">
+                                        @if (app != null && app.CurrentState is ConfirmedAppointmentState confirmed)
+                                        {
+                                            <!-- Karten-Design passend zur Tagesansicht und den Hex-Farben aus grafik_7.png -->
+                                            <div class="p-3 text-white rounded-3 shadow-sm d-flex flex-column justify-content-between h-100 text-start" 
+                                                 style="background-color: @GetColorForCard(app.Patient?.Lastname); transition: transform 0.2s; cursor: pointer;">
+                                                <div>
+                                                    <div class="fw-bold text-truncate" style="font-size: 0.95rem;">@app.Patient?.Firstname @app.Patient?.Lastname</div>
+                                                    <div class="small opacity-90 text-truncate">🏢 @app.Resource?.Name</div>
+                                                </div>
+                                                <div class="d-flex justify-content-between small opacity-75 mt-2" style="font-size: 0.75rem; font-weight: 500;">
+                                                    <span class="text-truncate me-1">Dr. @confirmed.Doctor?.Lastname</span>
+                                                    <span class="text-nowrap">@($"{confirmed.PlannedSlot?.Start.ToString("H:mm")}")</span>
+                                                </div>
+                                            </div>
+                                        }
+                                    </td>
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private DateOnly currentDate = DateOnly.FromDateTime(new DateTime(2020, 2, 22)); // Synchronisiert auf dasselbe Test-Datum wie der Tag
+    private List<Appointment>? appointments;
+    private List<int> hours = new() { 7, 8, 9, 10, 11 };
+
+    protected override async Task OnInitializedAsync() => await LoadDataAsync();
+
+    private async Task LoadDataAsync() 
+    {
+        appointments = await AppointmentService.GetAppointmentsByRangeAsync(GetStartOfWeek(currentDate), GetEndOfWeek(currentDate));
+    }
+
+    private async Task SetToToday() { currentDate = DateOnly.FromDateTime(DateTime.Today); await LoadDataAsync(); }
+    private async Task NavigatePrevious() { currentDate = currentDate.AddDays(-7); await LoadDataAsync(); }
+    private async Task NavigateNext() { currentDate = currentDate.AddDays(7); await LoadDataAsync(); }
+
+    private DateOnly GetStartOfWeek(DateOnly date) { int diff = (7 + (date.DayOfWeek - DayOfWeek.Monday)) % 7; return date.AddDays(-1 * diff); }
+    private DateOnly GetEndOfWeek(DateOnly date) => GetStartOfWeek(date).AddDays(4);
+    
+    private int GetIsoWeekNumber(DateOnly date) 
+    { 
+        return CultureInfo.CurrentCulture.Calendar.GetWeekOfYear(new DateTime(date.Year, date.Month, date.Day), CalendarWeekRule.FirstFourDayWeek, DayOfWeek.Monday);
+    }
+
+    // Identische Farb-Zuweisung wie in der Tagesansicht für ein einheitliches Gesamtbild
+    private string GetColorForCard(string? lastname)
+    {
+        if (lastname == "Alexander") return "#3a5a85"; 
+        if (lastname == "Berger") return "#5fa8f2";    
+        if (lastname == "Bingen") return "#5cbda3";    
+        if (lastname == "Merte") return "#e27c64";     
+        return "#a18ec1";                              
+    }
+}

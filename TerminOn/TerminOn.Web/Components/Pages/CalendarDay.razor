@@ -1,0 +1,210 @@
+﻿@page "/calendar"
+@page "/calendar/day"
+@using System.Globalization
+@using TerminOn.Application.Model
+@using TerminOn.Application.Services
+@inject AppointmentService AppointmentService
+@inject LocationService LocationService
+@inject DoctorService DoctorService
+@inject PatientService PatientService
+@rendermode InteractiveServer
+
+<PageTitle>Tagesansicht - TerminOn</PageTitle>
+
+<div class="container-fluid px-4 py-4 bg-white min-vh-100">
+    
+    <!-- OBERER HEADER -->
+    <div class="d-flex justify-content-between align-items-start mb-4">
+        <div>
+            <h1 class="fw-bold text-dark mb-0" style="font-size: 1.85rem; letter-spacing: -0.5px;">Ihr Kalender <span class="text-muted fw-light">&gt;</span></h1>
+            <p class="text-muted small mb-0 ps-1">Josef Keliner Gasse 1</p>
+        </div>
+        
+        <div class="d-flex gap-2">
+            <a href="book-appointment" class="btn btn-outline-primary px-4 py-2 small fw-semibold" style="border-color: #2b4c7e; color: #2b4c7e; border-radius: 6px; text-decoration: none;">Termin Buchen</a>
+            <button class="btn btn-danger px-4 py-2 small fw-bold shadow-sm" style="background-color: #e07a5f; border: none; border-radius: 6px;">AKUT</button>
+        </div>
+    </div>
+
+    <!-- SUB-NAVIGATION -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 py-2 border-bottom border-top border-light">
+        <div class="d-flex align-items-center gap-2">
+            <h2 class="h5 mb-0 fw-bold text-dark">@currentDate.ToString("dddd dd.MM.yyyy") &gt; <span class="text-muted fw-normal" style="font-size: 1.1rem;">KW @GetIsoWeekNumber(currentDate)</span></h2>
+            <button class="btn btn-sm btn-light border px-2 py-1 ms-2" @onclick="NavigatePrevious">◀</button>
+            <button class="btn btn-sm btn-light border px-3 py-1 small" @onclick="SetToToday">Heute</button>
+            <button class="btn btn-sm btn-light border px-2 py-1" @onclick="NavigateNext">▶</button>
+        </div>
+        
+        <div class="d-flex align-items-center gap-3">
+            <div class="btn-group p-1 bg-light rounded-3 border" style="font-size: 0.85rem;">
+                <a href="calendar/month" class="btn btn-sm text-secondary border-0 px-3">Monat</a>
+                <a href="calendar/week" class="btn btn-sm text-secondary border-0 px-3">Woche</a>
+                <a href="calendar/day" class="btn btn-sm bg-white shadow-sm text-primary rounded-2 fw-medium px-3">Tag</a>
+            </div>
+
+            <button class="btn btn-sm btn-outline-secondary" @onclick="GenerateDemoAppointmentsAsync">🪄 Demo laden</button>
+        </div>
+    </div>
+
+    <!-- KALENDER-GRID -->
+    @if (locations == null || appointments == null)
+    {
+        <div class="text-center my-5">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="text-muted small mt-2">Lade Tagesraster...</p>
+        </div>
+    }
+    else
+    {
+        <div class="card border-0 shadow-sm rounded-4 bg-white overflow-hidden mt-4">
+            <div class="table-responsive">
+                <table class="table table-borderless mb-0" style="table-layout: fixed;">
+                    <thead>
+                        <tr class="border-bottom border-light text-center">
+                            <th style="width: 70px;"></th>
+                            @foreach (var loc in locations)
+                            {
+                                <th class="py-3 fw-bold text-secondary text-uppercase border-start border-light" style="font-size: 0.8rem; letter-spacing: 0.5px; background-color: #f8fafc;">
+                                    @loc.Name
+                                </th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var hour in hours)
+                        {
+                            <tr class="border-bottom border-light">
+                                <td class="text-center text-muted fw-semibold py-4" style="font-size: 0.85rem; width: 60px; vertical-align: top;">
+                                    @($"{hour:D2}")
+                                </td>
+                                
+                                @foreach (var loc in locations)
+                                {
+                                    var slotAppointments = appointments.Where(a => a.Date == currentDate && a.Resource?.Name == loc.Name && a.CurrentState is ConfirmedAppointmentState c && c.PlannedSlot != null && c.PlannedSlot.Start.Hour == hour).ToList();
+                                    
+                                    <!-- WICHTIG: position-relative auf der Zelle verankert die absolute Positionierung der inneren Karte -->
+                                    <td class="position-relative border-start border-light" style="height: 115px; background-image: linear-gradient(#f8fafc 1px, transparent 1px); background-size: 100% 25px; vertical-align: top;">
+                                        @foreach (var app in slotAppointments)
+                                        {
+                                            if (app.CurrentState is ConfirmedAppointmentState confirmed)
+                                            {
+                                                <!-- 🔥 FIX: 'position: absolute; inset: 6px;' zwingt die Karte, die Zelle voll auszufüllen ohne abzustürzen -->
+                                                <div class="p-3 text-white rounded-3 shadow-sm d-flex flex-column justify-content-between animate-fade-in" 
+                                                     style="background-color: @GetColorForCard(app.Patient?.Lastname); position: absolute; inset: 6px; z-index: 10; overflow: hidden;">
+                                                    <div>
+                                                        <div class="fw-bold text-truncate" style="font-size: 0.95rem;">@app.Patient?.Firstname @app.Patient?.Lastname</div>
+                                                        <div class="small opacity-90 mt-0.5 text-truncate">Dr. @confirmed.Doctor?.Lastname</div>
+                                                    </div>
+                                                    <div class="d-flex justify-content-between align-items-end small opacity-75 mt-1" style="font-size: 0.75rem; font-weight: 500;">
+                                                        <span class="text-truncate me-1">@confirmed.Infotext</span>
+                                                        <span class="text-nowrap fw-bold">@($"{confirmed.PlannedSlot?.Start.ToString("H:mm")}-{confirmed.PlannedSlot?.End.ToString("H:mm")}")</span>
+                                                    </div>
+                                                </div>
+                                            }
+                                        }
+                                    </td>
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private DateOnly currentDate = DateOnly.FromDateTime(new DateTime(2020, 2, 22)); 
+    private List<Location>? locations;
+    private List<Appointment>? appointments;
+    private List<int> hours = new() { 7, 8, 9, 10, 11 };
+
+    protected override async Task OnInitializedAsync()
+    {
+        locations = await LocationService.GetAllLocationsAsync();
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        appointments = await AppointmentService.GetAppointmentsByDateAsync(currentDate);
+    }
+
+    private async Task SetToToday() { currentDate = DateOnly.FromDateTime(DateTime.Today); await LoadDataAsync(); }
+    private async Task NavigatePrevious() { currentDate = currentDate.AddDays(-1); await LoadDataAsync(); }
+    private async Task NavigateNext() { currentDate = currentDate.AddDays(1); await LoadDataAsync(); }
+
+    private int GetIsoWeekNumber(DateOnly date)
+    {
+        return CultureInfo.CurrentCulture.Calendar.GetWeekOfYear(new DateTime(date.Year, date.Month, date.Day), CalendarWeekRule.FirstFourDayWeek, DayOfWeek.Monday);
+    }
+
+    private string GetColorForCard(string? lastname)
+    {
+        if (lastname == "Alexander") return "#3a5a85"; 
+        if (lastname == "Berger") return "#5fa8f2";    
+        if (lastname == "Bingen") return "#5cbda3";    
+        if (lastname == "Merte") return "#e27c64";     
+        return "#a18ec1";                              
+    }
+
+    private async Task GenerateDemoAppointmentsAsync()
+    {
+        var allPatients = await PatientService.GetAllPatientsAsync();
+        var allDocs = await DoctorService.GetAllDoctorsAsync();
+        
+        if (allPatients.Count < 3 || allDocs.Count < 2 || locations == null || locations.Count < 2)
+        {
+            var p1 = new Patient("Peter", "Alexander", new InsuranceNumber("1111223344"), null);
+            var p2 = new Patient("Manuela", "Berger", new InsuranceNumber("2222334455"), null);
+            var p3 = new Patient("Maria", "Bingen", new InsuranceNumber("3333445566"), null);
+            await PatientService.AddPatientAsync(p1);
+            await PatientService.AddPatientAsync(p2);
+            await PatientService.AddPatientAsync(p3);
+
+            var d1 = new Doctor("Lina", "Müller", "lina@ordination.at");
+            var d2 = new Doctor("Mira", "Muster", "mira@ordination.at");
+            await DoctorService.AddDoctorAsync(d1);
+            await DoctorService.AddDoctorAsync(d2);
+
+            var l1 = new Location("Ordination 1", "O1");
+            var l2 = new Location("Ordination 2", "O2");
+            await LocationService.AddLocationAsync(l1);
+            await LocationService.AddLocationAsync(l2);
+
+            allPatients = await PatientService.GetAllPatientsAsync();
+            allDocs = await DoctorService.GetAllDoctorsAsync();
+            locations = await LocationService.GetAllLocationsAsync();
+        }
+
+        var res1 = new Resource(locations[0].Name, locations[0]);
+        var res2 = new Resource(locations[1].Name, locations[1]);
+
+        // 🔥 FIX: Wir instanziieren den AppointmentType sauber ohne die gelöschten Minuten, damit er nicht null ist!
+        // Falls dein Konstruktor einen Namen verlangt, schreib einfach: new AppointmentType("Standard")
+        var validAppointmentType = new AppointmentType(); 
+
+        // 1. Peter Alexander
+        var app1 = new Appointment(currentDate, DateTime.Now, allPatients[0], validAppointmentType, res1);
+        var state1 = new ConfirmedAppointmentState(allDocs[0], new TimeSlot(new TimeOnly(7, 0), new TimeOnly(8, 0)), "Erstbehandlung & Kontrolle", app1, DateTime.Now);
+        state1.Appointment = app1; 
+        app1.CurrentState = state1;
+        await AppointmentService.AddAppointmentAsync(app1);
+
+        // 2. Manuela Berger
+        var app2 = new Appointment(currentDate, DateTime.Now, allPatients[1], validAppointmentType, res1);
+        var state2 = new ConfirmedAppointmentState(allDocs[0], new TimeSlot(new TimeOnly(8, 0), new TimeOnly(8, 30)), "Nachuntersuchung", app2, DateTime.Now);
+        state2.Appointment = app2;
+        app2.CurrentState = state2;
+        await AppointmentService.AddAppointmentAsync(app2);
+
+        // 3. Maria von Bingen
+        var app3 = new Appointment(currentDate, DateTime.Now, allPatients[2], validAppointmentType, res2);
+        var state3 = new ConfirmedAppointmentState(allDocs[1], new TimeSlot(new TimeOnly(9, 0), new TimeOnly(10, 0)), "Operation", app3, DateTime.Now);
+        state3.Appointment = app3;
+        app3.CurrentState = state3;
+        await AppointmentService.AddAppointmentAsync(app3);
+
+        await LoadDataAsync();
+    }
+}
