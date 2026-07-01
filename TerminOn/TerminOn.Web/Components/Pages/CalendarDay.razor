@@ -82,15 +82,15 @@
                                 {
                                     var slotAppointments = appointments.Where(a => a.Date == currentDate && a.Resource?.Name == loc.Name && a.CurrentState is ConfirmedAppointmentState c && c.PlannedSlot != null && c.PlannedSlot.Start.Hour == hour).ToList();
                                     
-                                    <!-- WICHTIG: position-relative auf der Zelle verankert die absolute Positionierung der inneren Karte -->
                                     <td class="position-relative border-start border-light" style="height: 115px; background-image: linear-gradient(#f8fafc 1px, transparent 1px); background-size: 100% 25px; vertical-align: top;">
                                         @foreach (var app in slotAppointments)
                                         {
                                             if (app.CurrentState is ConfirmedAppointmentState confirmed)
                                             {
-                                                <!-- 🔥 FIX: 'position: absolute; inset: 6px;' zwingt die Karte, die Zelle voll auszufüllen ohne abzustürzen -->
-                                                <div class="p-3 text-white rounded-3 shadow-sm d-flex flex-column justify-content-between animate-fade-in" 
-                                                     style="background-color: @GetColorForCard(app.Patient?.Lastname); position: absolute; inset: 6px; z-index: 10; overflow: hidden;">
+                                                <!-- 🔥 KORREKTUR: Nutzt jetzt voll dynamisch die DB-Farbe aus AppointmentType -->
+                                                <div class="p-3 text-white rounded-3 shadow-sm d-flex flex-column justify-content-between" 
+                                                     style="background-color: @(app.AppointmentType?.Color ?? "#3a5a85"); position: absolute; inset: 6px; z-index: 10; overflow: hidden; transition: transform 0.15s; cursor: pointer;"
+                                                     @onclick="() => OpenCancelModal(app)">
                                                     <div>
                                                         <div class="fw-bold text-truncate" style="font-size: 0.95rem;">@app.Patient?.Firstname @app.Patient?.Lastname</div>
                                                         <div class="small opacity-90 mt-0.5 text-truncate">Dr. @confirmed.Doctor?.Lastname</div>
@@ -111,6 +111,38 @@
             </div>
         </div>
     }
+
+    <!-- STORNIERUNGS-MODAL -->
+    @if (showCancelModal && appointmentToCancel != null)
+    {
+        <div class="modal fade show d-block" style="background-color: rgba(0, 0, 0, 0.5); z-index: 1050;" tabindex="-1" role="dialog">
+            <div class="modal-dialog modal-dialog-centered" role="document">
+                <div class="modal-content border-0 shadow rounded-4 p-3 bg-white">
+                    <div class="modal-header border-0 pb-0">
+                        <h5 class="modal-title fw-bold text-danger">❌ Termin stornieren</h5>
+                        <button type="button" class="btn-close" @onclick="CloseCancelModal" aria-label="Schließen"></button>
+                    </div>
+                    <div class="modal-body py-3">
+                        <p class="mb-3 text-dark">
+                            Möchten Sie den Termin für <strong>@appointmentToCancel.Patient?.Firstname @appointmentToCancel.Patient?.Lastname</strong> wirklich absagen?
+                        </p>
+                        <div class="mb-2">
+                            <label class="form-label small fw-bold text-secondary mb-1">Grund für die Stornierung (erforderlich)</label>
+                            <textarea class="form-control rounded-3" rows="3" placeholder="z.B. Patient ist erkrankt..." @bind="cancellationReason"></textarea>
+                        </div>
+                        @if (!string.IsNullOrEmpty(modalErrorMessage))
+                        {
+                            <div class="text-danger small mt-2">⚠️ @modalErrorMessage</div>
+                        }
+                    </div>
+                    <div class="modal-footer border-0 pt-0 d-flex gap-2">
+                        <button type="button" class="btn btn-light border rounded-3 px-4 w-50" @onclick="CloseCancelModal">Abbrechen</button>
+                        <button type="button" class="btn btn-danger rounded-3 px-4 w-50 fw-bold" @onclick="ConfirmCancellationAsync">Termin absagen</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
 </div>
 
 @code {
@@ -118,6 +150,11 @@
     private List<Location>? locations;
     private List<Appointment>? appointments;
     private List<int> hours = new() { 7, 8, 9, 10, 11 };
+
+    private bool showCancelModal = false;
+    private Appointment? appointmentToCancel;
+    private string cancellationReason = "";
+    private string modalErrorMessage = "";
 
     protected override async Task OnInitializedAsync()
     {
@@ -130,6 +167,43 @@
         appointments = await AppointmentService.GetAppointmentsByDateAsync(currentDate);
     }
 
+    private void OpenCancelModal(Appointment appointment)
+    {
+        appointmentToCancel = appointment;
+        cancellationReason = "";
+        modalErrorMessage = "";
+        showCancelModal = true;
+    }
+
+    private void CloseCancelModal()
+    {
+        showCancelModal = false;
+        appointmentToCancel = null;
+    }
+
+    private async Task ConfirmCancellationAsync()
+    {
+        if (string.IsNullOrWhiteSpace(cancellationReason))
+        {
+            modalErrorMessage = "Bitte geben Sie einen Stornierungsgrund an.";
+            return;
+        }
+
+        try
+        {
+            var cancelledState = new CancelledAppointmentState(appointmentToCancel!, DateTime.Now, cancellationReason);
+            appointmentToCancel!.CurrentState = cancelledState;
+
+            await AppointmentService.UpdateAppointmentAsync(appointmentToCancel);
+            showCancelModal = false;
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            modalErrorMessage = $"Fehler beim Stornieren: {ex.Message}";
+        }
+    }
+
     private async Task SetToToday() { currentDate = DateOnly.FromDateTime(DateTime.Today); await LoadDataAsync(); }
     private async Task NavigatePrevious() { currentDate = currentDate.AddDays(-1); await LoadDataAsync(); }
     private async Task NavigateNext() { currentDate = currentDate.AddDays(1); await LoadDataAsync(); }
@@ -137,15 +211,6 @@
     private int GetIsoWeekNumber(DateOnly date)
     {
         return CultureInfo.CurrentCulture.Calendar.GetWeekOfYear(new DateTime(date.Year, date.Month, date.Day), CalendarWeekRule.FirstFourDayWeek, DayOfWeek.Monday);
-    }
-
-    private string GetColorForCard(string? lastname)
-    {
-        if (lastname == "Alexander") return "#3a5a85"; 
-        if (lastname == "Berger") return "#5fa8f2";    
-        if (lastname == "Bingen") return "#5cbda3";    
-        if (lastname == "Merte") return "#e27c64";     
-        return "#a18ec1";                              
     }
 
     private async Task GenerateDemoAppointmentsAsync()
@@ -180,26 +245,23 @@
         var res1 = new Resource(locations[0].Name, locations[0]);
         var res2 = new Resource(locations[1].Name, locations[1]);
 
-        // 🔥 FIX: Wir instanziieren den AppointmentType sauber ohne die gelöschten Minuten, damit er nicht null ist!
-        // Falls dein Konstruktor einen Namen verlangt, schreib einfach: new AppointmentType("Standard")
-        var validAppointmentType = new AppointmentType(); 
+        var type1 = new AppointmentType("Erstbehandlung", "#3a5a85");
+        var type2 = new AppointmentType("Nachuntersuchung", "#5fa8f2");
+        var type3 = new AppointmentType("Operation", "#e27c64");
 
-        // 1. Peter Alexander
-        var app1 = new Appointment(currentDate, DateTime.Now, allPatients[0], validAppointmentType, res1);
+        var app1 = new Appointment(currentDate, DateTime.Now, allPatients[0], type1, res1);
         var state1 = new ConfirmedAppointmentState(allDocs[0], new TimeSlot(new TimeOnly(7, 0), new TimeOnly(8, 0)), "Erstbehandlung & Kontrolle", app1, DateTime.Now);
         state1.Appointment = app1; 
         app1.CurrentState = state1;
         await AppointmentService.AddAppointmentAsync(app1);
 
-        // 2. Manuela Berger
-        var app2 = new Appointment(currentDate, DateTime.Now, allPatients[1], validAppointmentType, res1);
+        var app2 = new Appointment(currentDate, DateTime.Now, allPatients[1], type2, res1);
         var state2 = new ConfirmedAppointmentState(allDocs[0], new TimeSlot(new TimeOnly(8, 0), new TimeOnly(8, 30)), "Nachuntersuchung", app2, DateTime.Now);
         state2.Appointment = app2;
         app2.CurrentState = state2;
         await AppointmentService.AddAppointmentAsync(app2);
 
-        // 3. Maria von Bingen
-        var app3 = new Appointment(currentDate, DateTime.Now, allPatients[2], validAppointmentType, res2);
+        var app3 = new Appointment(currentDate, DateTime.Now, allPatients[2], type3, res2);
         var state3 = new ConfirmedAppointmentState(allDocs[1], new TimeSlot(new TimeOnly(9, 0), new TimeOnly(10, 0)), "Operation", app3, DateTime.Now);
         state3.Appointment = app3;
         app3.CurrentState = state3;

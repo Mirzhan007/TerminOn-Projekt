@@ -9,7 +9,7 @@
 
 <div class="container-fluid px-4 py-4 bg-white min-vh-100">
     
-    <!-- 1. OBERER HEADER (Perfekt synchron mit Tag und Woche) -->
+    <!-- OBERER HEADER -->
     <div class="d-flex justify-content-between align-items-start mb-4">
         <div>
             <h1 class="fw-bold text-dark mb-0" style="font-size: 1.85rem; letter-spacing: -0.5px;">Ihr Kalender <span class="text-muted fw-light">&gt;</span></h1>
@@ -17,12 +17,12 @@
         </div>
         
         <div class="d-flex gap-2">
-           <a href="book-appointment" class="btn btn-outline-primary px-4 py-2 small fw-semibold" style="border-color: #2b4c7e; color: #2b4c7e; border-radius: 6px; text-decoration: none;">Termin Buchen</a>
+            <a href="book-appointment" class="btn btn-outline-primary px-4 py-2 small fw-semibold" style="border-color: #2b4c7e; color: #2b4c7e; border-radius: 6px; text-decoration: none;">Termin Buchen</a>
             <button class="btn btn-danger px-4 py-2 small fw-bold shadow-sm" style="background-color: #e07a5f; border: none; border-radius: 6px;">AKUT</button>
         </div>
     </div>
 
-    <!-- 2. SUB-NAVIGATION (Konsolidiert auf eine Zeile mit funktionstüchtigen Tabs) -->
+    <!-- SUB-NAVIGATION -->
     <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 py-2 border-bottom border-top border-light">
         <div class="d-flex align-items-center gap-2">
             <h2 class="h5 mb-0 fw-bold text-dark text-uppercase" style="letter-spacing: 0.5px;">@currentDate.ToString("MMMM yyyy") &gt;</h2>
@@ -31,7 +31,6 @@
             <button class="btn btn-sm btn-light border px-2 py-1" @onclick="NavigateNext">▶</button>
         </div>
 
-        <!-- Die MCW Navigations-Tabs -->
         <div class="btn-group p-1 bg-light rounded-3 border" style="font-size: 0.85rem;">
             <a href="calendar/month" class="btn btn-sm bg-white shadow-sm text-primary rounded-2 fw-medium px-3">Monat</a>
             <a href="calendar/week" class="btn btn-sm text-secondary border-0 px-3">Woche</a>
@@ -39,7 +38,7 @@
         </div>
     </div>
 
-    <!-- 3. MONATS-GRID -->
+    <!-- MONATS-GRID -->
     @if (appointments == null)
     {
         <div class="text-center my-5">
@@ -50,7 +49,6 @@
     else
     {
         <div class="card border-0 shadow-sm rounded-4 bg-white overflow-hidden mt-4">
-            <!-- Wochentage-Header -->
             <div class="d-grid text-center py-2 border-bottom" style="grid-template-columns: repeat(7, 1fr); background-color: #f8fafc; font-size: 0.8rem;">
                 @foreach (var dayName in CultureInfo.CurrentCulture.DateTimeFormat.AbbreviatedDayNames.Skip(1).Concat(CultureInfo.CurrentCulture.DateTimeFormat.AbbreviatedDayNames.Take(1)))
                 {
@@ -58,34 +56,33 @@
                 }
             </div>
             
-            <!-- Kalendertage-Grid -->
             <div class="d-grid bg-light" style="grid-template-columns: repeat(7, 1fr); gap: 1px;">
                 @foreach (var cell in GetMonthGridCells())
                 {
-                    <div class="p-2 bg-white position-relative d-flex flex-column justify-content-between" style="min-height: 115px; transition: background-color 0.2s;">
+                    <div class="p-2 bg-white position-relative d-flex flex-column justify-content-between" style="min-height: 115px;">
                         @if (cell.HasValue)
                         {
-                            var dayAppointments = appointments.Where(a => a.Date == cell.Value).ToList();
+                            var dayAppointments = appointments.Where(a => a.Date == cell.Value && a.CurrentState is ConfirmedAppointmentState).ToList();
                             
                             <div>
-                                <!-- Highlight für den heutigen Tag im Monat -->
                                 <span class="fw-bold small d-inline-block mb-2 text-center rounded-circle @(cell.Value == DateOnly.FromDateTime(DateTime.Today) ? "bg-primary text-white" : "text-secondary")" 
                                       style="@(cell.Value == DateOnly.FromDateTime(DateTime.Today) ? "width: 24px; height: 24px; line-height: 24px;" : "")">
                                     @cell.Value.Day
                                 </span>
                                 
-                                <!-- Kompakt gerenderte Termin-Badges -->
                                 <div class="d-flex flex-column gap-1 overflow-hidden" style="max-height: 70px;">
                                     @foreach (var app in dayAppointments.Take(2))
                                     {
+                                        <!-- 🔥 KORREKTUR: Nutzt jetzt voll dynamisch die DB-Farbe aus AppointmentType -->
                                         <div class="px-2 py-1 rounded text-white text-truncate shadow-sm fw-medium" 
-                                             style="background-color: @GetColorForCard(app.Patient?.Lastname); font-size: 0.7rem; line-height: 1.2; cursor: pointer;">
+                                             style="background-color: @(app.AppointmentType?.Color ?? "#3a5a85"); font-size: 0.7rem; line-height: 1.2; cursor: pointer;"
+                                             @onclick="() => OpenCancelModal(app)">
                                             ⏱️ @app.Patient?.Lastname
                                         </div>
                                     }
                                     @if (dayAppointments.Count > 2)
                                     {
-                                        <div class="text-muted text-center fw-semibold mt-1" style="font-size: 0.65rem; letter-spacing: 0.2px;">
+                                        <div class="text-muted text-center fw-semibold mt-1" style="font-size: 0.65rem;">
                                             + @(dayAppointments.Count - 2) weitere
                                         </div>
                                     }
@@ -97,11 +94,48 @@
             </div>
         </div>
     }
+
+    <!-- STORNIERUNGS-MODAL -->
+    @if (showCancelModal && appointmentToCancel != null)
+    {
+        <div class="modal fade show d-block" style="background-color: rgba(0, 0, 0, 0.5); z-index: 1050;" tabindex="-1" role="dialog">
+            <div class="modal-dialog modal-dialog-centered" role="document">
+                <div class="modal-content border-0 shadow rounded-4 p-3 bg-white">
+                    <div class="modal-header border-0 pb-0">
+                        <h5 class="modal-title fw-bold text-danger">❌ Termin stornieren</h5>
+                        <button type="button" class="btn-close" @onclick="CloseCancelModal" aria-label="Schließen"></button>
+                    </div>
+                    <div class="modal-body py-3">
+                        <p class="mb-3 text-dark">
+                            Möchten Sie den Termin für <strong>@appointmentToCancel.Patient?.Firstname @appointmentToCancel.Patient?.Lastname</strong> wirklich absagen?
+                        </p>
+                        <div class="mb-2">
+                            <label class="form-label small fw-bold text-secondary mb-1">Grund für die Stornierung (erforderlich)</label>
+                            <textarea class="form-control rounded-3" rows="3" placeholder="z.B. Patient ist erkrankt..." @bind="cancellationReason"></textarea>
+                        </div>
+                        @if (!string.IsNullOrEmpty(modalErrorMessage))
+                        {
+                            <div class="text-danger small mt-2">⚠️ @modalErrorMessage</div>
+                        }
+                    </div>
+                    <div class="modal-footer border-0 pt-0 d-flex gap-2">
+                        <button type="button" class="btn btn-light border rounded-3 px-4 w-50" @onclick="CloseCancelModal">Abbrechen</button>
+                        <button type="button" class="btn btn-danger rounded-3 px-4 w-50 fw-bold" @onclick="ConfirmCancellationAsync">Termin absagen</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
 </div>
 
 @code {
-    private DateOnly currentDate = DateOnly.FromDateTime(new DateTime(2020, 2, 22)); // Synchroner Start-Monat für Demodaten
+    private DateOnly currentDate = DateOnly.FromDateTime(new DateTime(2020, 2, 22)); 
     private List<Appointment>? appointments;
+
+    private bool showCancelModal = false;
+    private Appointment? appointmentToCancel;
+    private string cancellationReason = "";
+    private string modalErrorMessage = "";
 
     protected override async Task OnInitializedAsync() => await LoadDataAsync();
 
@@ -112,19 +146,46 @@
         appointments = await AppointmentService.GetAppointmentsByRangeAsync(startOfMonth, endOfMonth);
     }
 
+    private void OpenCancelModal(Appointment appointment)
+    {
+        appointmentToCancel = appointment;
+        cancellationReason = "";
+        modalErrorMessage = "";
+        showCancelModal = true;
+    }
+
+    private void CloseCancelModal()
+    {
+        showCancelModal = false;
+        appointmentToCancel = null;
+    }
+
+    private async Task ConfirmCancellationAsync()
+    {
+        if (string.IsNullOrWhiteSpace(cancellationReason))
+        {
+            modalErrorMessage = "Bitte geben Sie einen Stornierungsgrund an.";
+            return;
+        }
+
+        try
+        {
+            var cancelledState = new CancelledAppointmentState(appointmentToCancel!, DateTime.Now, cancellationReason);
+            appointmentToCancel!.CurrentState = cancelledState;
+
+            await AppointmentService.UpdateAppointmentAsync(appointmentToCancel);
+            showCancelModal = false;
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            modalErrorMessage = $"Fehler beim Stornieren: {ex.Message}";
+        }
+    }
+
     private async Task SetToToday() { currentDate = DateOnly.FromDateTime(DateTime.Today); await LoadDataAsync(); }
     private async Task NavigatePrevious() { currentDate = currentDate.AddMonths(-1); await LoadDataAsync(); }
     private async Task NavigateNext() { currentDate = currentDate.AddMonths(1); await LoadDataAsync(); }
-
-    // Identische Farbzuweisung wie bei Tag & Woche für ein konsistentes Look-and-Feel
-    private string GetColorForCard(string? lastname)
-    {
-        if (lastname == "Alexander") return "#3a5a85"; // Deep Medical Blue
-        if (lastname == "Berger") return "#5fa8f2";    // Hellblau
-        if (lastname == "Bingen") return "#5cbda3";    // Mintgrün
-        if (lastname == "Merte") return "#e27c64";     // Lachs-Rot
-        return "#a18ec1";                              // Pastell-Violett
-    }
 
     private List<DateOnly?> GetMonthGridCells()
     {
