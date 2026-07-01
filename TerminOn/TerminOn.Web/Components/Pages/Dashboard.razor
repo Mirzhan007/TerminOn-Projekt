@@ -1,0 +1,214 @@
+﻿@page "/"
+@page "/dashboard"
+@using System.Globalization
+@using TerminOn.Application.Model
+@using TerminOn.Application.Services
+@inject AppointmentService AppointmentService
+@rendermode InteractiveServer
+
+<PageTitle>Dashboard - TerminOn</PageTitle>
+
+<div class="container-fluid px-4 py-4 bg-white min-vh-100">
+    
+    <!-- OBERER HEADER -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 pb-3 border-bottom border-light">
+        <div>
+            <h1 class="fw-bold text-dark mb-0" style="font-size: 1.85rem; letter-spacing: -0.5px;">Ihr Dashboard</h1>
+            <p class="text-muted small mb-0 ps-1">Ordination Dr. Mira Muster</p>
+        </div>
+        
+        <div class="d-flex gap-2">
+            <button class="btn btn-danger px-3 py-2 small fw-bold shadow-sm" style="background-color: #e07a5f; border: none; border-radius: 6px; font-size: 0.85rem;">AKUT</button>
+            <a href="book-appointment" class="btn text-white px-3 py-2 small fw-semibold shadow-sm" style="background-color: #2b4c7e; border-radius: 6px; font-size: 0.85rem; text-decoration: none;">Termin Buchen</a>
+            <button class="btn btn-outline-secondary px-3 py-2 small fw-medium" style="border-radius: 6px; font-size: 0.85rem; border-color: #2b4c7e; color: #2b4c7e; background: white;">Sperrtermin</button>
+        </div>
+    </div>
+
+    <!-- MAIN GRID: SHORTCUTS & LIVE-TERMINE -->
+    <div class="row g-4 mb-5">
+        
+        <!-- LINKS: IHRE SHORTCUTS -->
+        <div class="col-lg-8">
+            <h2 class="h5 fw-bold text-dark mb-3" style="font-family: sans-serif;">Ihre Shortcuts:</h2>
+            
+            <div class="row g-3">
+                <div class="col-sm-4">
+                    <a href="calendar/day" class="card h-100 border-0 shadow-sm rounded-4 p-3 text-center text-decoration-none shortcut-card bg-light">
+                        <div class="fs-1 mb-2">📅</div>
+                        <div class="fw-semibold text-dark small">Kalender:<br><span class="text-secondary fw-normal">Tagesansicht</span></div>
+                    </a>
+                </div>
+
+                <div class="col-sm-4">
+                    <a href="calendar/week" class="card h-100 border-0 shadow-sm rounded-4 p-3 text-center text-decoration-none shortcut-card bg-light">
+                        <div class="fs-1 mb-2">🗓️</div>
+                        <div class="fw-semibold text-dark small">Kalender:<br><span class="text-secondary fw-normal">Wochenansicht</span></div>
+                    </a>
+                </div>
+
+                <div class="col-sm-4">
+                    <a href="calendar/month" class="card h-100 border-0 shadow-sm rounded-4 p-3 text-center text-decoration-none shortcut-card bg-light">
+                        <div class="fs-1 mb-2">📆</div>
+                        <div class="fw-semibold text-dark small">Kalender:<br><span class="text-secondary fw-normal">Monatsansicht</span></div>
+                    </a>
+                </div>
+
+                <div class="col-sm-4">
+                    <a href="book-appointment" class="card h-100 border-0 shadow-sm rounded-4 p-3 text-center text-decoration-none shortcut-card bg-light">
+                        <div class="fs-1 mb-2">✍️</div>
+                        <div class="fw-semibold text-dark small mt-1">Neuen Termin<br><span class="text-secondary fw-normal">Buchen</span></div>
+                    </a>
+                </div>
+
+                <!-- 🔥 KORREKTUR: Verweist jetzt exakt auf dein bestehendes PatientForm -->
+                <div class="col-sm-4">
+                    <a href="patient/new" class="card h-100 border-0 shadow-sm rounded-4 p-3 text-center text-decoration-none shortcut-card bg-light">
+                        <div class="fs-1 mb-2">👤</div>
+                        <div class="fw-semibold text-dark small mt-1">Neuen Patienten<br><span class="text-secondary fw-normal">Anlegen</span></div>
+                    </a>
+                </div>
+
+                <!-- 🔥 KORREKTUR: Verweist auf deine bestehende Patientenkartei -->
+                <div class="col-sm-4">
+                    <a href="patients" class="card h-100 border-0 shadow-sm rounded-4 p-3 text-center text-decoration-none shortcut-card bg-light">
+                        <div class="fs-1 mb-2">🔍</div>
+                        <div class="fw-semibold text-dark small mt-1">Patienten<br><span class="text-secondary fw-normal">Suchen</span></div>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- RECHTS: LIVE TERMINE CARD -->
+        <div class="col-lg-4">
+            <h2 class="h5 fw-bold text-dark mb-3">Termine:</h2>
+            
+            <div class="card border-0 shadow-sm rounded-4 p-4 h-100" style="background-color: #f4f8fd;">
+                
+                <div class="d-flex justify-content-between align-items-center bg-white rounded-3 px-3 py-2 border mb-4 shadow-sm">
+                    <label class="fw-bold text-dark small mb-0 me-2" style="white-space: nowrap;">Ansicht für:</label>
+                    <input type="date" class="form-control form-control-sm border-0 fw-semibold text-primary" 
+                           style="box-shadow: none; cursor: pointer; background-color: transparent; text-align: right;" 
+                           @bind="SelectedDate" @bind:event="onchange" />
+                </div>
+
+                @if (todayAppointments == null)
+                {
+                    <div class="text-center py-4">
+                        <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                    </div>
+                }
+                else
+                {
+                    <div class="d-flex justify-content-between align-items-center py-3 border-bottom border-light">
+                        <span class="text-secondary fw-medium">Gesamt</span>
+                        <span class="h4 mb-0 fw-bold text-dark">@totalCount</span>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center py-3 border-bottom border-light">
+                        <span class="text-secondary fw-medium">Absagen</span>
+                        <span class="h4 mb-0 fw-bold text-danger">@cancelledCount</span>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center py-3">
+                        <span class="text-secondary fw-medium">Bevorstehend</span>
+                        <span class="h4 mb-0 fw-bold" style="color: #2b4c7e;">@confirmedCount</span>
+                    </div>
+                }
+            </div>
+        </div>
+
+    </div>
+
+    <!-- UNTERER BEREICH: BRAUCHEN SIE HILFE? -->
+    <div>
+        <h2 class="h5 fw-bold text-dark mb-3">Brauchen Sie Hilfe?</h2>
+        
+        <div class="row g-3">
+            <div class="col-md-4">
+                <div class="card border-0 rounded-4 p-4 text-center text-white h-100 d-flex flex-column align-items-center justify-content-center shadow-sm text-decoration-none help-card" 
+                     style="background: linear-gradient(135deg, #8ebdff 0%, #a287f4 100%); min-height: 140px; cursor: pointer;">
+                    <div class="fs-2 mb-1">📺</div>
+                    <div class="fw-bold" style="font-size: 1.05rem; letter-spacing: 0.2px;">Video Tutorials</div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="card border-0 rounded-4 p-4 text-center text-dark h-100 d-flex flex-column align-items-center justify-content-center shadow-sm text-decoration-none help-card" 
+                     style="background: linear-gradient(135deg, #fff3a1 0%, #ffd075 100%); min-height: 140px; cursor: pointer;">
+                    <div class="fs-2 mb-1">📁</div>
+                    <div class="fw-bold text-dark" style="font-size: 1.05rem; letter-spacing: 0.2px;">Anleitungen & Blog</div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="card border-0 rounded-4 p-4 text-center text-white h-100 d-flex flex-column align-items-center justify-content-center shadow-sm text-decoration-none help-card" 
+                     style="background: linear-gradient(135deg, #a3daf5 0%, #e3a6cc 100%); min-height: 140px; cursor: pointer;">
+                    <div class="fs-2 mb-1">🎟️</div>
+                    <div class="fw-bold" style="color: #2b4c7e; font-size: 1.05rem; letter-spacing: 0.2px;">MCW Support Ticket</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<style>
+    .shortcut-card {
+        transition: transform 0.2s, box-shadow 0.2s, background-color 0.2s;
+    }
+    .shortcut-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 .5rem 1rem rgba(0,0,0,.08)!important;
+        background-color: #ffffff!important;
+        border: 1px solid #e2e8f0!important;
+    }
+    .help-card {
+        transition: transform 0.2s, filter 0.2s;
+    }
+    .help-card:hover {
+        transform: scale(1.02);
+        filter: brightness(1.03);
+    }
+</style>
+
+@code {
+    private DateTime _selectedDate = new DateTime(2020, 2, 22); 
+    private DateTime SelectedDate
+    {
+        get => _selectedDate;
+        set
+        {
+            if (_selectedDate != value)
+            {
+                _selectedDate = value;
+                _ = LoadMetricsAsync(); 
+            }
+        }
+    }
+
+    private List<Appointment>? todayAppointments;
+
+    private int totalCount = 0;
+    private int cancelledCount = 0;
+    private int confirmedCount = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadMetricsAsync();
+    }
+
+    private async Task LoadMetricsAsync()
+    {
+        var dateOnly = DateOnly.FromDateTime(_selectedDate);
+        todayAppointments = await AppointmentService.GetAppointmentsByDateAsync(dateOnly);
+
+        if (todayAppointments != null)
+        {
+            totalCount = todayAppointments.Count;
+            cancelledCount = todayAppointments.Count(a => a.CurrentState is CancelledAppointmentState);
+            confirmedCount = todayAppointments.Count(a => a.CurrentState is ConfirmedAppointmentState);
+        }
+        
+        StateHasChanged(); 
+    }
+}

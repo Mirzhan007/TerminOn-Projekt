@@ -154,6 +154,21 @@
         {
             errorMessage = "";
 
+            // 1. Datum extrahieren
+            var dateOnly = DateOnly.FromDateTime(bookingDate);
+
+            // NEU: Überprüfen, ob der gewählte Patient an DIESEM Tag bereits einen Termin hat
+            var existingAppointments = await AppointmentService.GetAppointmentsByDateAsync(dateOnly);
+            
+            // Da wir im Service '.Include(a => a.Patient)' haben, können wir die ID sicher prüfen
+            if (existingAppointments.Any(a => a.Patient?.Id == selectedPatientId))
+            {
+                // Regel greift: Wir verhindern den Absturz und zeigen eine schöne UI-Meldung!
+                errorMessage = "Der ausgewählte Patient besitzt an diesem Tag bereits einen Termin. Bitte wählen Sie ein anderes Datum oder einen anderen Patienten.";
+                return;
+            }
+
+            // 2. Wenn alles frei ist, normal fortfahren:
             var patient = patients!.First(p => p.Id == selectedPatientId);
             var doctor = doctors!.First(d => d.Id == selectedDoctorId);
             var location = locations!.First(l => l.Id == selectedLocationId);
@@ -161,8 +176,6 @@
             var resource = new Resource(location.Name, location);
             var appType = new AppointmentType(infotext, "#3a5a85");
             
-            // KORREKTUR: Konvertierung in DateOnly / TimeOnly erfolgt erst hier, sicher extrahiert aus den DateTimes
-            var dateOnly = DateOnly.FromDateTime(bookingDate);
             var startTimeOnly = TimeOnly.FromDateTime(startTime);
             var endTimeOnly = TimeOnly.FromDateTime(endTime);
             
